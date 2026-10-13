@@ -4,6 +4,37 @@
 
 ---
 
+## 0. Fast Path — Kiểm tra Hiệu lực VB (Không cần khởi động OODA)
+
+**Trigger:** User hỏi dạng `"[VB X] còn hiệu lực không?"` / `"NĐ X đã bị thay chưa?"` / `"TT Y còn áp dụng không?"` — đơn thuần kiểm tra hiệu lực, **không kèm tình huống pháp lý cần phân tích**.
+
+**Quy trình — 3 bước, trả lời thẳng lên chat, không tạo file phase, không tạo report:**
+
+```
+Bước 1 — Search
+  search_web: site:thuvienphapluat.vn "[số hiệu VB]"
+  → Lấy URL kết quả đầu tiên khớp số hiệu
+
+Bước 2 — Fetch & Đọc banner
+  web_fetch [URL]
+  → Đọc banner đầu trang:
+      🟢 "Còn hiệu lực"        → Trả lời: Còn hiệu lực + ngày có hiệu lực
+      🟡 "Hết hiệu lực một phần" → Trả lời: Còn hiệu lực một phần + liệt kê điều/khoản đã hết
+      🔴 "Hết hiệu lực"        → Trả lời: Đã hết hiệu lực từ [ngày] + VB thay thế là gì
+
+Bước 3 — Nếu "Hết hiệu lực": đọc thêm tab "Lịch sử hiệu lực"
+  → Xác định VB nào thay thế / sửa đổi / bãi bỏ VB này
+  → Trả lời kèm: "Thay thế bởi [số hiệu VB mới] có hiệu lực từ [ngày]"
+```
+
+**Đầu ra:** Trả lời trực tiếp trên chat, không quá 3-4 dòng. Không tạo file. Không chạy PDCA/OODA.
+
+**Khi nào KHÔNG dùng Fast Path:**
+- User hỏi hiệu lực kèm tình huống ("NĐ X còn hiệu lực không? Tôi đang bị tranh chấp...") → chuyển sang OODA bình thường
+- VB là QĐ UBND tỉnh địa phương → thuvienphapluat.vn có thể không có, thông báo user tra cổng tỉnh
+
+---
+
 ## 1. Nguồn Chính thống
 
 ### Ưu tiên 1 — Cơ sở dữ liệu pháp luật
@@ -25,6 +56,25 @@
 | Bộ LĐTB&XH | molisa.gov.vn | Lao động, BHXH |
 | Bộ TN&MT | monre.gov.vn | Đất đai, môi trường |
 | Bộ Xây dựng | moc.gov.vn | Xây dựng, quy hoạch, BĐS |
+
+### Ưu tiên 3 — Hỏi đáp chính sách thực tiễn
+
+| Nguồn | URL | Điểm mạnh | Lưu ý |
+|---|---|---|---|
+| **Chính sách Online** | chinhsachonline.chinhphu.vn | Câu hỏi thực tế + trả lời chính thức từ Bộ/ngành; có chuyên mục đấu thầu, thuế, tài chính, lao động | Render JS — không fetch được toàn bộ; dùng search_web để tìm, sau đó web_fetch URL cụ thể |
+
+**Cú pháp tìm trên chinhsachonline:**
+```
+site:chinhsachonline.chinhphu.vn "[keyword]"
+site:chinhsachonline.chinhphu.vn "[keyword đấu thầu]" OR "[keyword tài chính]"
+```
+
+**Khi nào dùng Ưu tiên 3:**
+- Cần hướng dẫn thực tiễn cho tình huống cụ thể mà VBQPPL không quy định rõ
+- Cần biết Bộ/ngành diễn giải điều luật như thế nào trong thực tế
+- Adversarial Check: tìm cách Bộ đã trả lời tình huống tương tự
+
+**Giá trị pháp lý:** Câu trả lời của Bộ/ngành là **ý kiến giải đáp hành chính**, không phải VBQPPL — dùng để bổ trợ SOT và Adversarial Check, **không dùng làm căn cứ pháp lý chính** trong phần 2 của legal_report.
 
 ---
 
@@ -60,9 +110,9 @@ site:thuvienphapluat.vn "[lĩnh vực]" "2025" "nghị định"
 site:thuvienphapluat.vn "[lĩnh vực]" "có hiệu lực" "2025"
 ```
 
-### Đọc nội dung VB cụ thể (read_url_content)
+### Đọc nội dung VB cụ thể (web_fetch)
 
-Sau khi search_web tìm được URL → dùng `read_url_content` để đọc nội dung chi tiết điều/khoản. URL thuvienphapluat.vn thường có format:
+Sau khi search_web tìm được URL → dùng `web_fetch` để đọc nội dung chi tiết điều/khoản. URL thuvienphapluat.vn thường có format:
 ```
 https://thuvienphapluat.vn/van-ban/[linh-vuc]/[ten-van-ban]-[so-hieu]-[nam]-[so-id]
 ```

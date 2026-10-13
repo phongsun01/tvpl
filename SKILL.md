@@ -1,5 +1,5 @@
 ---
-name: tu-van-phap-luat
+name: tvpl
 description: TƯ VẤN ĐƯỜNG LỐI XỬ LÝ VẤN ĐỀ PHÁP LÝ VIỆT NAM — TRA CỨU KEYWORD CHÉO QUA CÁC TẦNG VBQPPL, GHÉP NỐI THÀNH SOURCE OF TRUTH TRÍCH DẪN NGUYÊN VĂN, RỒI CHẠY PDCA CASCADE MỞ RỘNG VÀ ĐÀO SÂU. Hỗ trợ định danh vấn đề theo 5 trục (đối tượng, hành vi, tác động, phạm vi, thời điểm), tra chéo VB gốc-sửa đổi-NĐ-TT, xây SOT với trích dẫn nguyên văn có tọa độ, xử lý xung đột lex, so sánh phương án, khuyến nghị đường lối hành động. Kích hoạt khi user đề cập 'pháp luật', 'tư vấn luật', 'tranh chấp', 'bị kiện', 'nghị định'; yêu cầu 'tôi phải làm gì', 'luật quy định thế nào', 'xử lý tình huống này'; nói 'muốn khiếu nại', 'đòi bồi thường', 'thành lập công ty'; trong tình huống gặp vấn đề pháp lý cần đường lối giải quyết. KHÔNG dùng cho nghiên cứu phi pháp lý (→ nghien-cuu-pdca), viết bài (→ viet-chuyen-nghiep). Dùng cho MỌI vấn đề pháp lý — kể cả khi user chỉ nói 'tình huống này xử lý sao' mà không nhắc 'luật'.
 ---
 
@@ -34,15 +34,23 @@ Trước khi tra cứu bất cứ điều gì, PHẢI khởi tạo không gian v
 **Quy trình Khởi tạo:**
 
 1. **Khởi tạo Thư mục & File (Cơ chế N+1 Bắt buộc):**
-   - Tạo thư mục `legal_research_[chủ_đề]/`.
-   - Kiểm tra xem đã có `legal_phase_X.md` chưa. Đọc file mới nhất để lấy SOT làm Baseline (nếu có). 
+   - Tạo thư mục `legal_research_[chủ_đề]/` bằng `write_file` với **đường dẫn tương đối** (VD: `legal_research_sa_thai/legal_phase_1.md`) — KHÔNG dùng đường dẫn tuyệt đối.
+   - Kiểm tra xem đã có `legal_phase_X.md` chưa. Đọc file mới nhất để lấy SOT làm Baseline (nếu có).
    - Tạo file mới `legal_phase_{N+1}.md`.
-2. **Định danh 5 trục pháp lý:** Đọc yêu cầu user, điền 5 trục. Thiếu → Hỏi (`ask_question`). Ghi thông tin này vào đầu file phase.
+
+   > ⚠️ **Lưu ý kỹ thuật:** `write_file` và `read_file` chỉ hoạt động với **đường dẫn tương đối**. Đừng bao giờ truyền đường dẫn tuyệt đối (bắt đầu bằng `D:\`, `C:\`, `/`). Ví dụ đúng: `legal_research_sa_thai/legal_phase_1.md`.
+2. **Định danh 5 trục pháp lý:** Đọc yêu cầu user, điền 5 trục. Thiếu → Hỏi user (sử dụng công cụ hỏi/tương tác của runtime như `ask_question` hoặc hỏi trực tiếp trên khung chat). Ghi thông tin này vào đầu file phase.
 3. **Sinh SOT Thô (Raw SOT):** 
    - Từ 5 trục → sinh bộ keyword (VD: "sa thải"). 
    - Tra bảng "Danh mục Module" (Mục 7) → đọc file trong `resources/domains/` tương ứng.
-   - Trích xuất các văn bản xương sống (Luật, Nghị định chính) và tạo bảng SOT thô ban đầu trong file phase.
+   - Từ file domain, đọc cột **"Căn cứ pháp lý"** của các khâu liên quan → rút ra danh sách VB xương sống (Luật gốc + NĐ chính). Đây là SOT thô ban đầu — chưa có nguyên văn, chỉ là danh sách VB cần tra tiếp ở Bước 1.
+   - Tạo bảng SOT thô trong file phase với các cột: Tọa độ | Nguyên văn (để trống) | Trạng thái | Ngày hiệu lực.
 4. **Xác định Tọa độ đích:** Ghi Target (Câu hỏi cốt lõi) và Exit Condition (Dấu hiệu đủ SOT) vào đầu file phase.
+
+   Exit Condition mẫu (chọn hoặc kết hợp theo tình huống):
+   - `"SOT có ≥3 trích dẫn nguyên văn bao phủ: (1) quyền/nghĩa vụ chính, (2) thủ tục thực hiện, (3) chế tài vi phạm"`
+   - `"Đã xác định VB áp dụng đúng mốc THỜI ĐIỂM, cross-reference đủ 3 chiều (xuống/ngang/thời gian)"`
+   - `"Đã giải quyết xung đột Lex nếu có; không còn GAP nào ảnh hưởng đến phương án tư vấn"`
 
 ---
 
@@ -59,7 +67,14 @@ Nhìn vào SOT hiện tại (hoặc SOT Thô), đặt câu hỏi để tìm Keyw
 → **Sinh KEYWORD MỚI** và xác định nguồn tìm kiếm (Thư viện pháp luật).
 
 ### [D] Do — Hành động Tra cứu
-Dùng `search_web` hoặc `read_url_content`. Load `resources/search-sources.md` và `resources/cross-reference-guide.md` để tối ưu.
+Thực hiện tra cứu web để tìm kiếm và fetch nội dung chi tiết điều/khoản (sử dụng công cụ tìm kiếm và đọc URL tương ứng của runtime, ví dụ `search_web`/`web_search` và `web_fetch`/`read_url_content`).
+**BẮT BUỘC** load resources trước vòng [D] đầu tiên bằng **`skill_view` tool** (KHÔNG dùng `read_file` — resources nằm ngoài workspace):
+
+```
+skill_view("tvpl", "resources/search-sources.md")        ← cú pháp search + nguồn tin
+skill_view("tvpl", "resources/cross-reference-guide.md") ← checklist tra chéo 3 chiều
+```
+Hai file này định nghĩa cú pháp search và checklist tra chéo 3 chiều; bỏ qua sẽ dẫn đến kết quả nhiễu hoặc bỏ sót VB sửa đổi.
 - **BẮT BUỘC TRÍCH DẪN MÁY MÓC:** Khi tìm thấy dữ liệu, phải trích xuất:
   - Tọa độ: `[Cấp VB] [Số hiệu] – Điều X, Khoản Y, Điểm Z`
   - Nguyên văn: Copy chính xác câu chữ.
@@ -135,7 +150,7 @@ Trước khi xuất đầu ra, kiểm tra:
 
 1. ✅ Đã tạo thư mục `legal_research_...` và file `legal_phase_X.md` chưa?
 2. ✅ 5 trục đã xác định đầy đủ (đặc biệt THỜI ĐIỂM)?
-3. ✅ File `legal_phase_X.md` đã có Baseline, Target, Exit Condition ở đầu chưa?
+3. ✅ File `legal_phase_X.md` đã có SOT thô (danh sách VB xương sống từ domain file), Target, Exit Condition ở đầu chưa?
 4. ✅ SOT có ≥3 trích dẫn nguyên văn?
 5. ✅ Mỗi trích dẫn có tọa độ đầy đủ (VB–Số hiệu–Điều–Khoản–Điểm)?
 6. ✅ Trạng thái hiệu lực đúng với mốc thời điểm user?
@@ -164,7 +179,10 @@ Load `resources/legal-system.md` khi cần tra cứu chi tiết. Tóm tắt:
 ⑦ Nghị quyết (Hội đồng Thẩm phán TANDTC)
 ⑧ Thông tư (Bộ trưởng, Chánh án TANDTC, Viện trưởng VKSNDTC, TKTNN)
 ⑨ Thông tư liên tịch
-⑩–⑮ Văn bản địa phương (HĐND/UBND tỉnh → huyện → xã)
+⑩–⑪ Văn bản cấp tỉnh (HĐND/UBND tỉnh/TP trực thuộc TW)
+⑫ Văn bản QPPL của chính quyền Đơn vị HC-KT đặc biệt
+⑬–⑭ Văn bản cấp xã (HĐND/UBND cấp xã - trong trường hợp luật giao)
+*(Từ 01/07/2025, cấp huyện không còn thẩm quyền ban hành VBQPPL)*
 ```
 
 ### Xung đột
@@ -179,7 +197,20 @@ Load `resources/legal-system.md` khi cần tra cứu chi tiết. Tóm tắt:
 
 ## 7. Danh mục Module Lĩnh vực & Keyword (SOT Baseline 07/2026)
 
-Trước khi tra cứu, Agent phải rà soát xem yêu cầu thuộc nhóm nào dưới đây, sau đó đọc (view_file) trực tiếp vào file module tương ứng trong `resources/domains/` để lấy khung xương sống NĐ/TT.
+Trước khi tra cứu, Agent phải rà soát xem yêu cầu thuộc nhóm nào dưới đây, sau đó đọc **bằng `skill_view` tool** (KHÔNG dùng `read_file` hay `view_file`) file module tương ứng:
+
+```
+skill_view("tvpl", "resources/domains/01-dan-su.md")
+skill_view("tvpl", "resources/domains/02-hinh-su-hanh-chinh.md")
+skill_view("tvpl", "resources/domains/03-doanh-nghiep-lao-dong.md")
+skill_view("tvpl", "resources/domains/04-dat-dai-xay-dung.md")
+skill_view("tvpl", "resources/domains/05-thue-tai-chinh.md")
+skill_view("tvpl", "resources/domains/06-chuyen-nganh-khac.md")
+skill_view("tvpl", "resources/domains/07-dau-thau.md")
+skill_view("tvpl", "resources/domains/08-hanh-chinh-khieu-nai.md")
+```
+
+**Cách đọc file domain:** Lọc các hàng trong bảng "Vòng đời / Khâu kỹ thuật" có liên quan đến 5 trục đã xác định → rút ra danh sách VB từ cột **"Căn cứ pháp lý"** → đưa vào bảng SOT thô (chỉ lấy tên VB + số hiệu, chưa cần nguyên văn). Không đọc hết file nếu không liên quan — domain files có nhiều vòng đời, chỉ lấy phần khớp với Hành vi và Đối tượng của tình huống.
 
 | Nhóm lĩnh vực | File Module Cần Đọc | Keyword nhận diện |
 |---|---|---|
@@ -187,19 +218,26 @@ Trước khi tra cứu, Agent phải rà soát xem yêu cầu thuộc nhóm nào
 | Hình sự & Hành chính | `resources/domains/02-hinh-su-hanh-chinh.md` | tội phạm, khởi tố, án treo, tham nhũng, phạt vi phạm, khiếu nại, tố cáo, giấy phép, phạt giao thông, căn cước. |
 | Doanh nghiệp & Lao động | `resources/domains/03-doanh-nghiep-lao-dong.md` | thành lập công ty, cổ đông, vốn, phá sản, đầu tư, sa thải, lương, BHXH, hợp đồng lao động, kỷ luật. |
 | Đất đai & Xây dựng | `resources/domains/04-dat-dai-xay-dung.md` | sổ đỏ, đền bù, chuyển nhượng, tiền SDĐ, giá đất, giấy phép xây dựng, chung cư, nhà ở xã hội, dự án BĐS. |
-| Thuế & Tài chính | `resources/domains/05-thue-tai-chinh.md` | khai thuế, hoàn thuế, truy thu, TNCN, TNDN, VAT, hóa đơn, đấu thầu, nhà thầu. |
+| Thuế & Tài chính | `resources/domains/05-thue-tai-chinh.md` | khai thuế, hoàn thuế, truy thu, TNCN, TNDN, VAT, hóa đơn, tài chính doanh nghiệp. |
+| Đấu thầu & Mua sắm công | `resources/domains/07-dau-thau.md` | đấu thầu, HSMT, HSDT, nhà thầu, gói thầu, KQLCNT, bảo lãnh dự thầu, chỉ định thầu, chào hàng cạnh tranh, muasamcong, KHLCNT. |
+| Hành chính & Kiến nghị Khiếu nại | `resources/domains/08-hanh-chinh-khieu-nai.md` | khiếu nại quyết định hành chính, kiến nghị đấu thầu, thời hiệu khiếu nại, tố tụng hành chính, giải quyết kiến nghị. |
 | Chuyên ngành Khác | `resources/domains/06-chuyen-nganh-khac.md` | an ninh mạng, dữ liệu, AI, chữ ký số, nhãn hiệu, bản quyền, ĐTM, ô nhiễm, GPLX, điện lực, năng lượng. |
 
 ---
 
 ## 8. Bản đồ Resources bổ trợ
 
-| File | Nội dung | Load khi nào |
+| File | Lệnh `skill_view` | Load khi nào |
 |---|---|---|
-| `resources/legal-system.md` | Thứ bậc, hiệu lực, xung đột, quan hệ VB | §2 (phân loại) + §4 (xung đột SOT) |
-| `resources/cross-reference-guide.md` | Tra chéo 3 chiều: xuống-ngang-thời gian | §3 (search & cross-reference) |
-| `resources/citation-format.md` | Chuẩn trích dẫn + template SOT | §3 (trích dẫn) + §4 (ghép SOT) |
-| `resources/search-sources.md` | Nguồn tin cậy + cú pháp tìm kiếm | §3 (search) |
+| `resources/legal-system.md` | `skill_view("tvpl", "resources/legal-system.md")` | §2 (phân loại) + §4 (xung đột SOT) |
+| `resources/cross-reference-guide.md` | `skill_view("tvpl", "resources/cross-reference-guide.md")` | §3 (search & cross-reference) |
+| `resources/citation-format.md` | `skill_view("tvpl", "resources/citation-format.md")` | §3 (trích dẫn) + §4 (ghép SOT) |
+| `resources/search-sources.md` | `skill_view("tvpl", "resources/search-sources.md")` | §3 (search) |
+| `resources/adversarial-patterns.md` | `skill_view("tvpl", "resources/adversarial-patterns.md")` | §3 [C] (Check mâu thuẫn & bẫy pháp lý) |
+| `resources/template_phase.md` | `skill_view("tvpl", "resources/template_phase.md")` | Bước 0 (Khởi tạo file phase) |
+| `resources/template_report.md` | `skill_view("tvpl", "resources/template_report.md")` | Bước 2 (Xuất báo cáo tư vấn) |
+
+> ⚠️ **QUAN TRỌNG:** Luôn dùng `skill_view` tool để đọc file trong `resources/`. **Tuyệt đối không** dùng `read_file` hay `view_file` — các tool đó không truy cập được path ngoài workspace.
 
 ---
 
